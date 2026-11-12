@@ -36,6 +36,48 @@ def test_guard_rejects_invented_number_and_missing_citation():
     assert guard.check_answer("If inverter temperature exceeds 75C, inspect cooling fans [1].", ctx)["grounded"]
 
 
+class FakeDense:
+    """Stand-in for a neural model: 'running hot' means temperature, even with no shared words."""
+
+    def __init__(self, chunks):
+        self.chunks = chunks
+
+    def scores(self, question):
+        import numpy as np
+        return np.array([0.9 if ("hot" in question and "exceeds" in c.text) else 0.3 for c in self.chunks])
+
+
+def test_hybrid_ranks_by_meaning_when_words_do_not_overlap():
+    from backend.retriever import Retriever
+    q = "What if the inverter is running hot?"
+    plain = Retriever(pipe.chunks).search(q, k=1)[0]
+    hybrid = Retriever(pipe.chunks, dense=FakeDense(pipe.chunks)).search(q, k=1)[0]
+    assert "exceeds" in hybrid.chunk.text and hybrid.dense == 0.9
+    assert hybrid.score > plain.score
+
+
+def test_missing_neural_package_falls_back_to_tfidf(monkeypatch=None):
+    import os
+    from backend.retriever import build_retriever
+    os.environ["EMBEDDING_BACKEND"] = "hybrid"
+    os.environ["EMBEDDING_MODEL"] = "no-such-model"
+    try:
+        r = build_retriever(pipe.chunks)
+        assert r.dense is None and r.backend == "tfidf" and "using TF-IDF only" in r.note
+    finally:
+        del os.environ["EMBEDDING_BACKEND"], os.environ["EMBEDDING_MODEL"]
+
+
+def test_answer_steps_follow_document_order():
+    r = pipe.ask("What should be checked for inverter derating?")
+    assert r["answer"].index("exceeds 75C") < r["answer"].index("repeated derating")
+
+
+def test_guard_rejects_reversed_direction_word():
+    ctx = [pipe.chunks[2]]
+    assert not guard.check_answer("Inspect cooling fans if the inverter temperature is below 75C [1].", ctx)["grounded"]
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

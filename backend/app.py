@@ -26,13 +26,15 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "chunks": len(pipeline.chunks), "llm_enabled": generator.llm_enabled()}
+    return {"status": "ok", "chunks": len(pipeline.chunks), "llm_enabled": generator.llm_enabled(),
+            "embedding_backend": pipeline.retriever.backend, "embedding_note": pipeline.retriever.note}
 
 
 @app.get("/api/demo")
 def demo():
     return {"case_study": "Energy Operations Document RAG Assistant", "status": "running",
             "chunks": len(pipeline.chunks), "llm_enabled": generator.llm_enabled(),
+            "embedding_backend": pipeline.retriever.backend,
             "try": "POST /api/ask {\"question\": \"What should be checked for inverter derating?\"}"}
 
 

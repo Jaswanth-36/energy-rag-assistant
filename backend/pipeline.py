@@ -4,7 +4,7 @@ from pathlib import Path
 
 from . import generator, guard
 from .chunking import build_chunks
-from .retriever import Retriever
+from .retriever import build_retriever
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
@@ -17,9 +17,9 @@ ABSTAIN_TEXT = "I could not find this in the provided operations documents, so I
 
 
 class RAGPipeline:
-    def __init__(self, data_dir: Path = DATA_DIR, max_words: int = 20):
+    def __init__(self, data_dir: Path = DATA_DIR, max_words: int = 20, retriever=None):
         self.chunks = build_chunks(data_dir, max_words=max_words)
-        self.retriever = Retriever(self.chunks)
+        self.retriever = retriever or build_retriever(self.chunks)
         self._by_id = {c.id: c for c in self.chunks}
 
     def retrieve_context(self, question: str, top_k: int = 3):
@@ -36,6 +36,12 @@ class RAGPipeline:
         for nb in self._neighbours(best.chunk):
             if nb not in used and len(used) < MAX_CONTEXT:
                 used.append(nb)
+        # Present the passages in the order a reader needs them: best document first,
+        # and inside a document in its own order (so step 1 comes before step 2).
+        doc_rank = {}
+        for i, h in enumerate(hits):
+            doc_rank.setdefault(h.chunk.source, i)
+        used.sort(key=lambda c: (doc_rank.get(c.source, len(hits)), int(c.id.rpartition("#")[2])))
         return hits, used, None
 
     def _neighbours(self, chunk):
@@ -51,10 +57,14 @@ class RAGPipeline:
         used_ids = {c.id for c in used}
         retrieval = [
             {"chunk_id": h.chunk.id, "source": h.chunk.source, "text": h.chunk.text,
-             "score": round(h.score, 3), "coverage": round(h.coverage, 2), "used": h.chunk.id in used_ids}
+             "score": round(h.score, 3), "coverage": round(h.coverage, 2), "used": h.chunk.id in used_ids,
+             "lexical": round(h.lexical, 3), "dense": None if h.dense is None else round(h.dense, 3)}
             for h in hits
         ]
-        out = {"question": question, "retrieval": retrieval, "citations": [], "check": None, "notes": []}
+        out = {"question": question, "retrieval": retrieval, "citations": [], "check": None, "notes": [],
+               "embedding_backend": self.retriever.backend}
+        if self.retriever.note:
+            out["notes"].append(self.retriever.note)
 
         if abstain_reason:
             out.update(mode="abstained", answer=ABSTAIN_TEXT)

@@ -5,7 +5,8 @@ cites:
   1. it carries a citation [n] and n points at a real context chunk;
   2. >= SUPPORT_THRESHOLD (80%) of its meaningful words appear in the cited chunk(s);
   3. every number in it (e.g. 75C) appears in the cited chunk(s);
-  4. it does not introduce a negation ("not", "never"...) the source lacks.
+  4. it does not introduce a negation ("not", "never"...) the source lacks;
+  5. it does not flip a direction word the source uses ("exceeds 75C" vs "below 75C").
 
 This is a deterministic, explainable check. It catches invented facts, wrong
 numbers and wrong citations; it cannot catch subtle meaning changes that reuse
@@ -17,6 +18,10 @@ from .chunking import Chunk
 from .text_utils import CITATION_RE, NEGATIONS, content_tokens, raw_tokens, split_sentences
 
 SUPPORT_THRESHOLD = 0.8
+UP_WORDS = {"above", "exceeds", "exceed", "exceeded", "exceeding", "over", "higher", "greater",
+            "rises", "rising", "increase", "increases", "increased"}
+DOWN_WORDS = {"below", "under", "beneath", "lower", "less", "drops", "falling", "decrease",
+              "decreases", "decreased"}
 
 
 def _normalise_citation_position(answer: str) -> str:
@@ -56,6 +61,11 @@ def check_answer(answer: str, context: list[Chunk], threshold: float = SUPPORT_T
         src_neg = NEGATIONS & set(raw_tokens(pool_text))
         if pool_chunks and sent_neg - src_neg:
             problems.append("adds a negation not present in the source")
+
+        s_raw, p_raw = set(raw_tokens(text)), set(raw_tokens(pool_text))
+        s_up, s_down, p_up, p_down = UP_WORDS & s_raw, DOWN_WORDS & s_raw, UP_WORDS & p_raw, DOWN_WORDS & p_raw
+        if pool_chunks and ((s_down and not s_up and p_up and not p_down) or (s_up and not s_down and p_down and not p_up)):
+            problems.append("reverses a direction/threshold word used in the source (e.g. above vs below)")
 
         results.append({
             "sentence": text.strip(),

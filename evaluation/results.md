@@ -1,6 +1,7 @@
 # Evaluation results
 
-Questions: 10 answerable, 6 out-of-scope. Guard test cases: 11.
+Embedding backend: tfidf
+Questions: 10 answerable, 6 out-of-scope. Guard test cases: 12.
 
 | Metric | Result |
 |---|---|
@@ -9,7 +10,7 @@ Questions: 10 answerable, 6 out-of-scope. Guard test cases: 11.
 | MRR | 1.00 |
 | Answerable questions wrongly refused | 0/10 |
 | Out-of-scope questions correctly refused | 6/6 = 100% |
-| Guard: fabricated answers caught | 7/8 |
+| Guard: fabricated answers caught | 8/9 |
 | Guard: faithful answers wrongly flagged | 0/3 |
 
 ## Guard test cases
@@ -26,4 +27,5 @@ Questions: 10 answerable, 6 out-of-scope. Guard test cases: 11.
 | citation to a non-existent source | False | False | yes |
 | flipped meaning (negation added) | False | False | yes |
 | partly invented detail | False | False | yes |
-| meaning changed using source words (known blind spot) | False | True | **NO** |
+| direction reversed (below vs exceeds) | False | False | yes |
+| steps reordered using source words (known blind spot) | False | True | **NO** |

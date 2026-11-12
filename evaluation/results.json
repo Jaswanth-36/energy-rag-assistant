@@ -8,7 +8,7 @@
   "abstention_accuracy": 1.0,
   "wrongly_answered": [],
   "answers_passing_guard": "10/10",
-  "guard_fabrications_caught": "7/8",
+  "guard_fabrications_caught": "8/9",
   "guard_false_alarms_on_good_answers": "0/3",
   "guard_cases": [
     {
@@ -16,7 +16,7 @@
       "expected_pass": true,
       "got_pass": true,
       "correct": true,
-      "answer": "Inspect the cooling fans and dust filters when the inverter temperature goes above 75C [2]."
+      "answer": "Inspect the cooling fans and dust filters when the inverter temperature goes above 75C [1]."
     },
     {
       "kind": "faithful paraphrase",
@@ -51,7 +51,7 @@
       "expected_pass": false,
       "got_pass": false,
       "correct": true,
-      "answer": "Shut down the whole plant and call the regulator [2]."
+      "answer": "Shut down the whole plant and call the regulator [1]."
     },
     {
       "kind": "missing citation",
@@ -72,21 +72,28 @@
       "expected_pass": false,
       "got_pass": false,
       "correct": true,
-      "answer": "Do not inspect the cooling fans [2]."
+      "answer": "Do not inspect the cooling fans [1]."
     },
     {
       "kind": "partly invented detail",
       "expected_pass": false,
       "got_pass": false,
       "correct": true,
-      "answer": "Inspect the cooling fans, dust filters and the solar panel glass for cracks [2]."
+      "answer": "Inspect the cooling fans, dust filters and the solar panel glass for cracks [1]."
     },
     {
-      "kind": "meaning changed using source words (known blind spot)",
+      "kind": "direction reversed (below vs exceeds)",
+      "expected_pass": false,
+      "got_pass": false,
+      "correct": true,
+      "answer": "Create a priority maintenance ticket and inspect cooling fans if the inverter temperature is below 75C [1] [2]."
+    },
+    {
+      "kind": "steps reordered using source words (known blind spot)",
       "expected_pass": false,
       "got_pass": true,
       "correct": false,
-      "answer": "Create a priority maintenance ticket and inspect cooling fans if the inverter temperature is below 75C [2] [1]."
+      "answer": "Verify SCADA alarms first, then create a priority maintenance ticket if repeated derating occurs [2]."
     }
   ],
   "retrieval_details": [

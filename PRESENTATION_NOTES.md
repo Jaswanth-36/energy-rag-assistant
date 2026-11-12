@@ -16,6 +16,7 @@ question -> chunk -> embed (TF-IDF) -> retrieve -> refuse-or-answer -> cite -> v
 - **Agent: no**, it's a fixed pipeline; no model chooses tools.
 - **LLM:** optional. Default is extractive (no LLM). If enabled, the LLM only rewrites retrieved
   text and its output is verified by Python.
+- **Embeddings:** default TF-IDF (sparse). Optional `hybrid` mode adds a local neural model (bge-small) fused with TF-IDF; falls back to TF-IDF if it cannot load.
 - **Python calculates:** retrieval, refusal decision, hallucination check. **LLM generates:** only wording.
 - **ML model / hyperparameters:** there is no trained model. Explain TF-IDF and the tunable settings:
   chunk size (20 words), refuse thresholds (similarity 0.12, coverage 0.5), guard support (0.8).
@@ -32,9 +33,9 @@ README -> `data/` -> `backend/chunking.py` -> `backend/retriever.py` -> `backend
 
 ## 6. Honest talking points
 - Eval set is tiny and self-written, so results are optimistic. Two thresholds were tuned after seeing failures (say so).
-- Known guard blind spot: "below 75C" passes because it reuses source words.
+- Guard now catches flipped direction words (above/below). Known remaining blind spot: reordered steps that reuse the source's words.
 - Challenge worth telling: splitting into sentence chunks made a chunk lose its subject ("inverter"), so I count the title as context for keyword coverage. Also my first guard test "failed" because I cited the wrong chunk, and the guard was right.
-- Next step: neural embeddings + NLI-based check.
+- Next step: calibrate neural embeddings on a larger set + NLI-based check.
 - Credit AI assistance if you used it, and be able to explain every file.
 
 ## Likely questions

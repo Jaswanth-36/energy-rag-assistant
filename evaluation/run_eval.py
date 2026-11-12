@@ -3,11 +3,12 @@
 Run from the project root:   python -m evaluation.run_eval
 Writes evaluation/results.json and evaluation/results.md.
 """
+import argparse
 import csv
 import json
 from pathlib import Path
 
-from backend import guard
+from backend import generator, guard
 from backend.pipeline import DATA_DIR, RAGPipeline
 
 OUT = Path(__file__).parent
@@ -47,7 +48,11 @@ GUARD_CASES = [
     # Known weakness, reported honestly: reuses source words, changes the meaning.
     ("What should be checked for inverter derating?",
      "Create a priority maintenance ticket and inspect cooling fans if the inverter temperature is below 75C [@75C] [@priority].",
-     False, "meaning changed using source words (known blind spot)"),
+     False, "direction reversed (below vs exceeds)"),
+    # Honest remaining blind spot: same words, but the order of the steps is changed.
+    ("What should be checked for inverter derating?",
+     "Verify SCADA alarms first, then create a priority maintenance ticket if repeated derating occurs [@priority].",
+     False, "steps reordered using source words (known blind spot)"),
 ]
 
 
@@ -64,11 +69,51 @@ def resolve_citations(answer: str, used) -> str:
     return re.sub(r"\[@([^\]]+)\]", repl, answer)
 
 
+def dense_calibration(pipe, rows) -> list[str]:
+    """Raw neural-embedding similarity of each question's best chunk, so thresholds can be set from data."""
+    if pipe.retriever.dense is None:
+        return []
+    ans = [float(pipe.retriever.dense.scores(r["question"]).max()) for r in rows if r["answerable"] == "yes"]
+    out = [float(pipe.retriever.dense.scores(r["question"]).max()) for r in rows if r["answerable"] == "no"]
+    return ["", "## Neural-embedding calibration", "",
+            f"Best raw cosine for answerable questions: min {min(ans):.2f}, max {max(ans):.2f}",
+            f"Best raw cosine for out-of-scope questions: min {min(out):.2f}, max {max(out):.2f}",
+            f"Set DENSE_FLOOR at or just above {max(out):.2f} so unrelated questions score 0, and below {min(ans):.2f}."]
+
+
+def run_llm_eval(pipe, answerable) -> None:
+    """Needs LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY. Measures the real LLM path end to end."""
+    if not generator.llm_enabled():
+        raise SystemExit("LLM mode is off. Set LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY, then rerun with --llm.")
+    modes = {"llm": 0, "llm_fallback": 0, "abstained": 0, "extractive": 0}
+    rows = []
+    for r in answerable:
+        res = pipe.ask(r["question"], use_llm=True)
+        modes[res["mode"]] = modes.get(res["mode"], 0) + 1
+        rows.append(f"| {r['question']} | {res['mode']} | {(res['check'] or {}).get('grounded')} | {res['answer'][:110]} |")
+    n = len(answerable)
+    md = ["# LLM-mode evaluation", "",
+          f"Model: {__import__('os').getenv('ANTHROPIC_MODEL', 'claude-haiku-5-5')}  |  questions: {n}", "",
+          f"- LLM answer passed the hallucination guard: {modes['llm']}/{n}",
+          f"- LLM draft rejected, extractive fallback used: {modes['llm_fallback']}/{n}",
+          f"- Wrongly refused: {modes['abstained']}/{n}", "",
+          "| Question | Mode | Grounded | Answer (first 110 chars) |", "|---|---|---|---|"] + rows
+    (OUT / "results_llm.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+    print("\n".join(md))
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--llm", action="store_true", help="evaluate the real LLM answer path (needs an API key)")
+    args = ap.parse_args()
     pipe = RAGPipeline()
     rows = list(csv.DictReader(open(DATA_DIR / "eval_questions.csv", encoding="utf-8")))
     answerable = [r for r in rows if r["answerable"] == "yes"]
     unanswerable = [r for r in rows if r["answerable"] == "no"]
+
+    if args.llm:
+        run_llm_eval(pipe, answerable)
+        return
 
     # --- Retrieval (answerable questions): did the right document come back? ---
     hit1 = hit3 = 0
@@ -128,6 +173,7 @@ def main() -> None:
     (OUT / "results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
 
     md = ["# Evaluation results", "",
+          f"Embedding backend: {pipe.retriever.backend}" + (f"  ({pipe.retriever.note})" if pipe.retriever.note else ""),
           f"Questions: {n} answerable, {len(unanswerable)} out-of-scope. Guard test cases: {len(GUARD_CASES)}.", "",
           "| Metric | Result |", "|---|---|",
           f"| Retrieval hit@1 (right document ranked first) | {hit1}/{n} = {hit1 / n:.0%} |",
@@ -141,6 +187,7 @@ def main() -> None:
         md += ["Out-of-scope questions the system wrongly answered:"] + [f"- {q}" for q in answered_wrongly] + [""]
     md += ["## Guard test cases", "", "| Case | Should pass | Did pass | OK |", "|---|---|---|---|"]
     md += [f"| {g['kind']} | {g['expected_pass']} | {g['got_pass']} | {'yes' if g['correct'] else '**NO**'} |" for g in guard_rows]
+    md += dense_calibration(pipe, rows)
     (OUT / "results.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     print("\n".join(md))
 

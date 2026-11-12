@@ -1,0 +1,2 @@
+# Optional: neural embeddings (EMBEDDING_BACKEND=hybrid). Not needed for the default app.
+fastembed>=0.3.0

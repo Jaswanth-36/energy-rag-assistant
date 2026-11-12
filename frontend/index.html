@@ -88,7 +88,7 @@ function render(d){
   const o=$("out"); o.className=""; o.replaceChildren();
   const abstained=d.mode==="abstained";
   const grounded=d.check&&d.check.grounded;
-  let cls="ok",msg="Verified: every sentence is supported by the cited document.";
+  let cls="ok",msg=d.mode==="llm"?"Verified: AI-written answer, and every sentence was checked against the cited documents.":"Verified: every sentence is supported by the cited document.";
   if(abstained){cls="warn";msg="No answer: the documents don't cover this, so the assistant refused instead of guessing."}
   else if(!grounded){cls="bad";msg="Warning: some sentences could not be verified against the sources."}
   o.appendChild(el("div","verdict "+cls,msg));
@@ -120,12 +120,12 @@ function render(d){
     const box=el("div","src"+(h.used?"":" unused")); if(num[h.chunk_id])box.id="src-"+num[h.chunk_id];
     box.appendChild(el("b","",(num[h.chunk_id]?"["+num[h.chunk_id]+"] ":"")+h.source));
     box.appendChild(el("div","",h.text));
-    box.appendChild(el("div","meta","similarity "+h.score.toFixed(2)+" · keyword coverage "+Math.round(h.coverage*100)+"% · "+(h.used?"used for the answer":"not used")));
+    box.appendChild(el("div","meta","similarity "+h.score.toFixed(2)+" · keyword coverage "+Math.round(h.coverage*100)+"%"+(h.dense!=null?" · embedding "+h.dense.toFixed(2):"")+" · "+(h.used?"used for the answer":"not used")));
     const bar=el("div","bar"),fill=el("i");fill.style.width=Math.min(100,h.score*100)+"%";bar.appendChild(fill);box.appendChild(bar);
     ev.appendChild(box);
   });
   o.appendChild(ev);
-  o.appendChild(el("p","hint","Mode: "+d.mode+" · "+d.latency_ms+" ms"));
+  o.appendChild(el("p","hint","Mode: "+d.mode+" · embeddings: "+d.embedding_backend+" · "+d.latency_ms+" ms"));
 }
 function flash(n){const b=$("src-"+n);if(!b)return;b.scrollIntoView({block:"nearest",behavior:"smooth"});b.classList.add("flash");setTimeout(()=>b.classList.remove("flash"),1500)}
 </script>
