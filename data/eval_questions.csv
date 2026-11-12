@@ -1,0 +1,17 @@
+question,expected_source,answerable
+What should be checked for inverter derating?,solar_inverter_sop.md,yes
+How should gearbox vibration be investigated?,wind_turbine_maintenance.md,yes
+What temperature should trigger an inverter inspection?,solar_inverter_sop.md,yes
+What should I verify before inspecting a spillway gate?,hydro_safety_brief.md,yes
+Which logs should be reviewed before escalating a generation deviation?,grid_operations_note.md,yes
+When should a priority maintenance ticket be created for an inverter?,solar_inverter_sop.md,yes
+What might high gearbox vibration with rising nacelle temperature indicate?,wind_turbine_maintenance.md,yes
+Do I need to confirm the evacuation route before hydro gate work?,hydro_safety_brief.md,yes
+Should curtailment instructions be reviewed when generation deviates from forecast?,grid_operations_note.md,yes
+What oil checks are recommended for a turbine gearbox?,wind_turbine_maintenance.md,yes
+What is the capital of France?,,no
+How do I bake a chocolate cake?,,no
+What is the safe voltage for transformer maintenance?,,no
+What is the share price of Greenko today?,,no
+How often should solar panels be washed?,,no
+What is the blade replacement procedure for a wind turbine?,,no

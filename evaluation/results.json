@@ -1,0 +1,164 @@
+{
+  "n_answerable": 10,
+  "n_unanswerable": 6,
+  "retrieval_hit_at_1": 1.0,
+  "retrieval_hit_at_3": 1.0,
+  "mrr": 1.0,
+  "wrongly_abstained": [],
+  "abstention_accuracy": 1.0,
+  "wrongly_answered": [],
+  "answers_passing_guard": "10/10",
+  "guard_fabrications_caught": "7/8",
+  "guard_false_alarms_on_good_answers": "0/3",
+  "guard_cases": [
+    {
+      "kind": "faithful paraphrase",
+      "expected_pass": true,
+      "got_pass": true,
+      "correct": true,
+      "answer": "Inspect the cooling fans and dust filters when the inverter temperature goes above 75C [2]."
+    },
+    {
+      "kind": "faithful paraphrase",
+      "expected_pass": true,
+      "got_pass": true,
+      "correct": true,
+      "answer": "Check the vibration spectrum, oil level and oil contamination [2]."
+    },
+    {
+      "kind": "faithful paraphrase",
+      "expected_pass": true,
+      "got_pass": true,
+      "correct": true,
+      "answer": "Verify lockout-tagout and the water level before a spillway gate inspection [1]."
+    },
+    {
+      "kind": "wrong number",
+      "expected_pass": false,
+      "got_pass": false,
+      "correct": true,
+      "answer": "Inspect the inverter if its temperature exceeds 85C [1]."
+    },
+    {
+      "kind": "invented number + invented action",
+      "expected_pass": false,
+      "got_pass": false,
+      "correct": true,
+      "answer": "Replace the gearbox immediately if vibration exceeds 12 mm/s [2]."
+    },
+    {
+      "kind": "invented action",
+      "expected_pass": false,
+      "got_pass": false,
+      "correct": true,
+      "answer": "Shut down the whole plant and call the regulator [2]."
+    },
+    {
+      "kind": "missing citation",
+      "expected_pass": false,
+      "got_pass": false,
+      "correct": true,
+      "answer": "Verify lockout-tagout and the water level before inspection."
+    },
+    {
+      "kind": "citation to a non-existent source",
+      "expected_pass": false,
+      "got_pass": false,
+      "correct": true,
+      "answer": "Verify lockout-tagout and the water level before inspection [5]."
+    },
+    {
+      "kind": "flipped meaning (negation added)",
+      "expected_pass": false,
+      "got_pass": false,
+      "correct": true,
+      "answer": "Do not inspect the cooling fans [2]."
+    },
+    {
+      "kind": "partly invented detail",
+      "expected_pass": false,
+      "got_pass": false,
+      "correct": true,
+      "answer": "Inspect the cooling fans, dust filters and the solar panel glass for cracks [2]."
+    },
+    {
+      "kind": "meaning changed using source words (known blind spot)",
+      "expected_pass": false,
+      "got_pass": true,
+      "correct": false,
+      "answer": "Create a priority maintenance ticket and inspect cooling fans if the inverter temperature is below 75C [2] [1]."
+    }
+  ],
+  "retrieval_details": [
+    {
+      "question": "What should be checked for inverter derating?",
+      "expected": "solar_inverter_sop.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    },
+    {
+      "question": "How should gearbox vibration be investigated?",
+      "expected": "wind_turbine_maintenance.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    },
+    {
+      "question": "What temperature should trigger an inverter inspection?",
+      "expected": "solar_inverter_sop.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    },
+    {
+      "question": "What should I verify before inspecting a spillway gate?",
+      "expected": "hydro_safety_brief.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    },
+    {
+      "question": "Which logs should be reviewed before escalating a generation deviation?",
+      "expected": "grid_operations_note.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    },
+    {
+      "question": "When should a priority maintenance ticket be created for an inverter?",
+      "expected": "solar_inverter_sop.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    },
+    {
+      "question": "What might high gearbox vibration with rising nacelle temperature indicate?",
+      "expected": "wind_turbine_maintenance.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    },
+    {
+      "question": "Do I need to confirm the evacuation route before hydro gate work?",
+      "expected": "hydro_safety_brief.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    },
+    {
+      "question": "Should curtailment instructions be reviewed when generation deviates from forecast?",
+      "expected": "grid_operations_note.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    },
+    {
+      "question": "What oil checks are recommended for a turbine gearbox?",
+      "expected": "wind_turbine_maintenance.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    }
+  ]
+}

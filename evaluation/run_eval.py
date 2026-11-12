@@ -1,0 +1,149 @@
+"""Evaluation: retrieval quality, abstention, and hallucination-guard tests.
+
+Run from the project root:   python -m evaluation.run_eval
+Writes evaluation/results.json and evaluation/results.md.
+"""
+import csv
+import json
+from pathlib import Path
+
+from backend import guard
+from backend.pipeline import DATA_DIR, RAGPipeline
+
+OUT = Path(__file__).parent
+
+# (question, answer text, should_pass_guard, what the test is about)
+GUARD_CASES = [
+    ("What should be checked for inverter derating?",
+     "Inspect the cooling fans and dust filters when the inverter temperature goes above 75C [@cooling].",
+     True, "faithful paraphrase"),
+    ("How should gearbox vibration be investigated?",
+     "Check the vibration spectrum, oil level and oil contamination [@spectrum].",
+     True, "faithful paraphrase"),
+    ("What should I verify before inspecting a spillway gate?",
+     "Verify lockout-tagout and the water level before a spillway gate inspection [@lockout].",
+     True, "faithful paraphrase"),
+    ("What temperature should trigger an inverter inspection?",
+     "Inspect the inverter if its temperature exceeds 85C [@75C].",
+     False, "wrong number"),
+    ("How should gearbox vibration be investigated?",
+     "Replace the gearbox immediately if vibration exceeds 12 mm/s [@spectrum].",
+     False, "invented number + invented action"),
+    ("What should be checked for inverter derating?",
+     "Shut down the whole plant and call the regulator [@cooling].",
+     False, "invented action"),
+    ("What should I verify before inspecting a spillway gate?",
+     "Verify lockout-tagout and the water level before inspection.",
+     False, "missing citation"),
+    ("What should I verify before inspecting a spillway gate?",
+     "Verify lockout-tagout and the water level before inspection [5].",
+     False, "citation to a non-existent source"),
+    ("What should be checked for inverter derating?",
+     "Do not inspect the cooling fans [@cooling].",
+     False, "flipped meaning (negation added)"),
+    ("What should be checked for inverter derating?",
+     "Inspect the cooling fans, dust filters and the solar panel glass for cracks [@cooling].",
+     False, "partly invented detail"),
+    # Known weakness, reported honestly: reuses source words, changes the meaning.
+    ("What should be checked for inverter derating?",
+     "Create a priority maintenance ticket and inspect cooling fans if the inverter temperature is below 75C [@75C] [@priority].",
+     False, "meaning changed using source words (known blind spot)"),
+]
+
+
+def resolve_citations(answer: str, used) -> str:
+    """Replace [@word] with the citation number of the retrieved chunk containing `word`,
+    so each test cites the chunk a careful writer would actually cite."""
+    import re
+
+    def repl(m):
+        for i, c in enumerate(used, start=1):
+            if m.group(1).lower() in c.text.lower():
+                return f"[{i}]"
+        return "[1]"
+    return re.sub(r"\[@([^\]]+)\]", repl, answer)
+
+
+def main() -> None:
+    pipe = RAGPipeline()
+    rows = list(csv.DictReader(open(DATA_DIR / "eval_questions.csv", encoding="utf-8")))
+    answerable = [r for r in rows if r["answerable"] == "yes"]
+    unanswerable = [r for r in rows if r["answerable"] == "no"]
+
+    # --- Retrieval (answerable questions): did the right document come back? ---
+    hit1 = hit3 = 0
+    rr_sum = 0.0
+    abstained_wrongly = []
+    details = []
+    for r in answerable:
+        hits = pipe.retriever.search(r["question"], k=3)
+        sources = [h.chunk.source for h in hits]
+        rank = sources.index(r["expected_source"]) + 1 if r["expected_source"] in sources else None
+        hit1 += rank == 1
+        hit3 += rank is not None
+        rr_sum += 1 / rank if rank else 0.0
+        res = pipe.ask(r["question"])
+        if res["mode"] == "abstained":
+            abstained_wrongly.append(r["question"])
+        details.append({"question": r["question"], "expected": r["expected_source"], "rank": rank,
+                        "mode": res["mode"], "grounded": (res["check"] or {}).get("grounded")})
+    n = len(answerable)
+
+    # --- Abstention (out-of-scope questions): did we refuse instead of guessing? ---
+    correct_abstain = 0
+    answered_wrongly = []
+    for r in unanswerable:
+        res = pipe.ask(r["question"])
+        if res["mode"] == "abstained":
+            correct_abstain += 1
+        else:
+            answered_wrongly.append(r["question"])
+
+    # --- Faithfulness of our own answers: do they pass the guard? ---
+    grounded = sum(1 for d in details if d["grounded"])
+
+    # --- Guard test: can it tell good answers from fabricated ones? ---
+    guard_rows = []
+    for q, ans, should_pass, kind in GUARD_CASES:
+        _, used, _ = pipe.retrieve_context(q)
+        ans = resolve_citations(ans, used)
+        verdict = guard.check_answer(ans, used)
+        guard_rows.append({"kind": kind, "expected_pass": should_pass, "got_pass": verdict["grounded"],
+                           "correct": verdict["grounded"] == should_pass, "answer": ans})
+    bad = [g for g in guard_rows if not g["expected_pass"]]
+    good = [g for g in guard_rows if g["expected_pass"]]
+    caught = sum(1 for g in bad if not g["got_pass"])
+    false_alarms = sum(1 for g in good if not g["got_pass"])
+
+    results = {
+        "n_answerable": n, "n_unanswerable": len(unanswerable),
+        "retrieval_hit_at_1": hit1 / n, "retrieval_hit_at_3": hit3 / n, "mrr": rr_sum / n,
+        "wrongly_abstained": abstained_wrongly,
+        "abstention_accuracy": correct_abstain / len(unanswerable), "wrongly_answered": answered_wrongly,
+        "answers_passing_guard": f"{grounded}/{n - len(abstained_wrongly)}",
+        "guard_fabrications_caught": f"{caught}/{len(bad)}",
+        "guard_false_alarms_on_good_answers": f"{false_alarms}/{len(good)}",
+        "guard_cases": guard_rows, "retrieval_details": details,
+    }
+    (OUT / "results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
+
+    md = ["# Evaluation results", "",
+          f"Questions: {n} answerable, {len(unanswerable)} out-of-scope. Guard test cases: {len(GUARD_CASES)}.", "",
+          "| Metric | Result |", "|---|---|",
+          f"| Retrieval hit@1 (right document ranked first) | {hit1}/{n} = {hit1 / n:.0%} |",
+          f"| Retrieval hit@3 | {hit3}/{n} = {hit3 / n:.0%} |",
+          f"| MRR | {rr_sum / n:.2f} |",
+          f"| Answerable questions wrongly refused | {len(abstained_wrongly)}/{n} |",
+          f"| Out-of-scope questions correctly refused | {correct_abstain}/{len(unanswerable)} = {correct_abstain / len(unanswerable):.0%} |",
+          f"| Guard: fabricated answers caught | {caught}/{len(bad)} |",
+          f"| Guard: faithful answers wrongly flagged | {false_alarms}/{len(good)} |", ""]
+    if answered_wrongly:
+        md += ["Out-of-scope questions the system wrongly answered:"] + [f"- {q}" for q in answered_wrongly] + [""]
+    md += ["## Guard test cases", "", "| Case | Should pass | Did pass | OK |", "|---|---|---|---|"]
+    md += [f"| {g['kind']} | {g['expected_pass']} | {g['got_pass']} | {'yes' if g['correct'] else '**NO**'} |" for g in guard_rows]
+    (OUT / "results.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+    print("\n".join(md))
+
+
+if __name__ == "__main__":
+    main()
