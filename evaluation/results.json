@@ -1,15 +1,32 @@
 {
-  "n_answerable": 10,
-  "n_unanswerable": 6,
-  "retrieval_hit_at_1": 1.0,
-  "retrieval_hit_at_3": 1.0,
-  "mrr": 1.0,
-  "wrongly_abstained": [],
+  "n_answerable": 15,
+  "n_unanswerable": 9,
+  "retrieval_hit_at_1": 0.9333333333333333,
+  "retrieval_hit_at_3": 0.9333333333333333,
+  "mrr": 0.9333333333333333,
+  "wrongly_abstained": [
+    "What if the inverter is running hot?",
+    "Our turbine gearbox is shaking a lot, what could be wrong?",
+    "What safety steps come before opening a spillway?",
+    "Why does power output differ from what was predicted?"
+  ],
   "abstention_accuracy": 1.0,
   "wrongly_answered": [],
-  "answers_passing_guard": "10/10",
+  "answers_passing_guard": "11/11",
   "guard_fabrications_caught": "8/9",
   "guard_false_alarms_on_good_answers": "0/3",
+  "by_type": {
+    "keyword": {
+      "n": 10,
+      "hit1": 10,
+      "refused": 0
+    },
+    "paraphrase": {
+      "n": 5,
+      "hit1": 4,
+      "refused": 4
+    }
+  },
   "guard_cases": [
     {
       "kind": "faithful paraphrase",
@@ -99,6 +116,7 @@
   "retrieval_details": [
     {
       "question": "What should be checked for inverter derating?",
+      "type": "keyword",
       "expected": "solar_inverter_sop.md",
       "rank": 1,
       "mode": "extractive",
@@ -106,6 +124,7 @@
     },
     {
       "question": "How should gearbox vibration be investigated?",
+      "type": "keyword",
       "expected": "wind_turbine_maintenance.md",
       "rank": 1,
       "mode": "extractive",
@@ -113,6 +132,7 @@
     },
     {
       "question": "What temperature should trigger an inverter inspection?",
+      "type": "keyword",
       "expected": "solar_inverter_sop.md",
       "rank": 1,
       "mode": "extractive",
@@ -120,6 +140,7 @@
     },
     {
       "question": "What should I verify before inspecting a spillway gate?",
+      "type": "keyword",
       "expected": "hydro_safety_brief.md",
       "rank": 1,
       "mode": "extractive",
@@ -127,6 +148,7 @@
     },
     {
       "question": "Which logs should be reviewed before escalating a generation deviation?",
+      "type": "keyword",
       "expected": "grid_operations_note.md",
       "rank": 1,
       "mode": "extractive",
@@ -134,6 +156,7 @@
     },
     {
       "question": "When should a priority maintenance ticket be created for an inverter?",
+      "type": "keyword",
       "expected": "solar_inverter_sop.md",
       "rank": 1,
       "mode": "extractive",
@@ -141,6 +164,7 @@
     },
     {
       "question": "What might high gearbox vibration with rising nacelle temperature indicate?",
+      "type": "keyword",
       "expected": "wind_turbine_maintenance.md",
       "rank": 1,
       "mode": "extractive",
@@ -148,6 +172,7 @@
     },
     {
       "question": "Do I need to confirm the evacuation route before hydro gate work?",
+      "type": "keyword",
       "expected": "hydro_safety_brief.md",
       "rank": 1,
       "mode": "extractive",
@@ -155,6 +180,7 @@
     },
     {
       "question": "Should curtailment instructions be reviewed when generation deviates from forecast?",
+      "type": "keyword",
       "expected": "grid_operations_note.md",
       "rank": 1,
       "mode": "extractive",
@@ -162,7 +188,48 @@
     },
     {
       "question": "What oil checks are recommended for a turbine gearbox?",
+      "type": "keyword",
       "expected": "wind_turbine_maintenance.md",
+      "rank": 1,
+      "mode": "extractive",
+      "grounded": true
+    },
+    {
+      "question": "What if the inverter is running hot?",
+      "type": "paraphrase",
+      "expected": "solar_inverter_sop.md",
+      "rank": 1,
+      "mode": "abstained",
+      "grounded": null
+    },
+    {
+      "question": "Our turbine gearbox is shaking a lot, what could be wrong?",
+      "type": "paraphrase",
+      "expected": "wind_turbine_maintenance.md",
+      "rank": 1,
+      "mode": "abstained",
+      "grounded": null
+    },
+    {
+      "question": "What safety steps come before opening a spillway?",
+      "type": "paraphrase",
+      "expected": "hydro_safety_brief.md",
+      "rank": 1,
+      "mode": "abstained",
+      "grounded": null
+    },
+    {
+      "question": "Why does power output differ from what was predicted?",
+      "type": "paraphrase",
+      "expected": "grid_operations_note.md",
+      "rank": null,
+      "mode": "abstained",
+      "grounded": null
+    },
+    {
+      "question": "Who should I contact before checking the water gate?",
+      "type": "paraphrase",
+      "expected": "hydro_safety_brief.md",
       "rank": 1,
       "mode": "extractive",
       "grounded": true

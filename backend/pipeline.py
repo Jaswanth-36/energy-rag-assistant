@@ -1,4 +1,5 @@
 """The whole RAG flow in one place: retrieve -> decide -> generate -> verify."""
+import os
 import time
 from pathlib import Path
 
@@ -17,10 +18,14 @@ ABSTAIN_TEXT = "I could not find this in the provided operations documents, so I
 
 
 class RAGPipeline:
-    def __init__(self, data_dir: Path = DATA_DIR, max_words: int = 20, retriever=None):
+    def __init__(self, data_dir: Path = DATA_DIR, max_words: int = 20, retriever=None, dense_accept=None):
         self.chunks = build_chunks(data_dir, max_words=max_words)
         self.retriever = retriever or build_retriever(self.chunks)
         self._by_id = {c.id: c for c in self.chunks}
+        # Neural 'accept' threshold: a question with few shared keywords is still answered when the
+        # best passage is this similar by meaning. Off (None) until calibrated with the eval script.
+        env = os.getenv("DENSE_ACCEPT")
+        self.dense_accept = dense_accept if dense_accept is not None else (float(env) if env else None)
 
     def retrieve_context(self, question: str, top_k: int = 3):
         """Returns (all_hits, used_chunks, abstain_reason_or_None)."""
@@ -28,7 +33,9 @@ class RAGPipeline:
         best = hits[0]
         if best.score < MIN_SCORE:
             return hits, [], f"best similarity {best.score:.2f} is below {MIN_SCORE}"
-        if best.coverage < MIN_COVERAGE:
+        accepted_by_meaning = (self.dense_accept is not None and best.dense is not None
+                               and best.dense >= self.dense_accept)
+        if best.coverage < MIN_COVERAGE and not accepted_by_meaning:
             return hits, [], f"only {best.coverage:.0%} of the question's keywords appear in the best match"
         used = [h.chunk for h in hits if h.score >= max(MIN_SCORE, REL_CUTOFF * best.score)][:MAX_CONTEXT]
         # Neighbour expansion: the sentence that answers a question is often right next to the

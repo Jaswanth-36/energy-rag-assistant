@@ -75,10 +75,16 @@ def dense_calibration(pipe, rows) -> list[str]:
         return []
     ans = [float(pipe.retriever.dense.scores(r["question"]).max()) for r in rows if r["answerable"] == "yes"]
     out = [float(pipe.retriever.dense.scores(r["question"]).max()) for r in rows if r["answerable"] == "no"]
-    return ["", "## Neural-embedding calibration", "",
-            f"Best raw cosine for answerable questions: min {min(ans):.2f}, max {max(ans):.2f}",
-            f"Best raw cosine for out-of-scope questions: min {min(out):.2f}, max {max(out):.2f}",
-            f"Set DENSE_FLOOR at or just above {max(out):.2f} so unrelated questions score 0, and below {min(ans):.2f}."]
+    lines = ["", "## Neural-embedding calibration", "",
+             f"Best raw cosine for answerable questions: min {min(ans):.2f}, max {max(ans):.2f}",
+             f"Best raw cosine for out-of-scope questions: min {min(out):.2f}, max {max(out):.2f}"]
+    if min(ans) > max(out):
+        mid = (min(ans) + max(out)) / 2
+        lines += [f"The two groups separate cleanly. Suggested settings: DENSE_FLOOR={max(out):.2f}, DENSE_ACCEPT={mid:.2f}.",
+                  "DENSE_ACCEPT lets a paraphrased question through when its best passage is at least that similar by meaning."]
+    else:
+        lines += ["The two groups overlap, so no safe DENSE_ACCEPT exists: leave it unset and keep the keyword rule."]
+    return lines
 
 
 def run_llm_eval(pipe, answerable) -> None:
@@ -130,9 +136,16 @@ def main() -> None:
         res = pipe.ask(r["question"])
         if res["mode"] == "abstained":
             abstained_wrongly.append(r["question"])
-        details.append({"question": r["question"], "expected": r["expected_source"], "rank": rank,
+        details.append({"question": r["question"], "type": r.get("type", "keyword"), "expected": r["expected_source"], "rank": rank,
                         "mode": res["mode"], "grounded": (res["check"] or {}).get("grounded")})
     n = len(answerable)
+
+    by_type = {}
+    for d in details:
+        t = by_type.setdefault(d["type"], {"n": 0, "hit1": 0, "refused": 0})
+        t["n"] += 1
+        t["hit1"] += d["rank"] == 1
+        t["refused"] += d["mode"] == "abstained"
 
     # --- Abstention (out-of-scope questions): did we refuse instead of guessing? ---
     correct_abstain = 0
@@ -168,7 +181,7 @@ def main() -> None:
         "answers_passing_guard": f"{grounded}/{n - len(abstained_wrongly)}",
         "guard_fabrications_caught": f"{caught}/{len(bad)}",
         "guard_false_alarms_on_good_answers": f"{false_alarms}/{len(good)}",
-        "guard_cases": guard_rows, "retrieval_details": details,
+        "by_type": by_type, "guard_cases": guard_rows, "retrieval_details": details,
     }
     (OUT / "results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
 
@@ -185,7 +198,11 @@ def main() -> None:
           f"| Guard: faithful answers wrongly flagged | {false_alarms}/{len(good)} |", ""]
     if answered_wrongly:
         md += ["Out-of-scope questions the system wrongly answered:"] + [f"- {q}" for q in answered_wrongly] + [""]
-    md += ["## Guard test cases", "", "| Case | Should pass | Did pass | OK |", "|---|---|---|---|"]
+    md += ["## Answerable questions by type", "",
+           "keyword = shares words with the document; paraphrase = different words, same meaning.", "",
+           "| Type | Questions | Right document first | Wrongly refused |", "|---|---|---|---|"]
+    md += [f"| {k} | {v['n']} | {v['hit1']}/{v['n']} | {v['refused']}/{v['n']} |" for k, v in by_type.items()]
+    md += ["", "## Guard test cases", "", "| Case | Should pass | Did pass | OK |", "|---|---|---|---|"]
     md += [f"| {g['kind']} | {g['expected_pass']} | {g['got_pass']} | {'yes' if g['correct'] else '**NO**'} |" for g in guard_rows]
     md += dense_calibration(pipe, rows)
     (OUT / "results.md").write_text("\n".join(md) + "\n", encoding="utf-8")

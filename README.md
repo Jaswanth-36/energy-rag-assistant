@@ -40,6 +40,14 @@ python -m evaluation.run_eval                          # retrieval eval + embedd
 python -m evaluation.run_eval --llm                    # evaluates the real LLM answer path
 ```
 
+Then calibrate once: the evaluation prints suggested `DENSE_FLOOR` and `DENSE_ACCEPT` values.
+Set them and rerun; the paraphrase questions should now be answered instead of refused:
+
+```bash
+export DENSE_FLOOR=0.xx DENSE_ACCEPT=0.xx              # values printed under "Neural-embedding calibration"
+python -m evaluation.run_eval
+```
+
 `GET /api/health` shows which backends are active. If the neural model cannot load, the app
 falls back to TF-IDF automatically and says so in the health output and in each answer.
 
@@ -61,7 +69,7 @@ question
 | Chunking | Pack whole sentences up to 20 words; never cut mid-sentence; title kept as context | A citation must be a readable passage. Sentence chunks keep the exact instruction intact. |
 | Embeddings | Default: TF-IDF (1-2 word grams, stemming, stop-words removed). Optional `hybrid`: TF-IDF + a local neural model (BAAI/bge-small-en-v1.5), scores fused 50/50 | TF-IDF is offline, instant and explainable. The neural part matches by meaning ("running hot" -> "temperature exceeds"). Fallback to TF-IDF keeps the app running if the model is unavailable. |
 | Retrieval | Fused cosine top-k + neighbour expansion, passages shown in document order | The sentence that answers a question often sits next to the best match; step 1 should appear before step 2. |
-| Refusal | Refuse if the best fused similarity is below 0.12 or fewer than 50% of the question's keywords appear in the best chunk | In a safety setting "I don't know" beats a confident guess. The keyword rule stays as a safety net even in hybrid mode. |
+| Refusal | Refuse if the best fused similarity is below 0.12 or fewer than 50% of the question's keywords appear in the best chunk, unless the optional `DENSE_ACCEPT` meaning check passes | In a safety setting "I don't know" beats a confident guess. |
 | Generation | Extractive by default; optional LLM (`LLM_PROVIDER=anthropic`) that sees only the retrieved passages | Extractive answers cannot invent facts. An LLM draft must pass the guard or we fall back to extractive. |
 | Guard | Per sentence: valid citation, >= 80% of key words in the cited chunk, all numbers present, no new negation, no flipped direction word (above/below) | Deterministic and explainable: it tells you *why* a sentence failed. |
 
@@ -70,16 +78,29 @@ because answers are built from retrieved document chunks.
 
 ## Evaluation (`python -m evaluation.run_eval`)
 
-Data: 10 answerable + 6 out-of-scope questions (`data/eval_questions.csv`), plus 12 hand-written
-answers to test the guard. Results below are for the default TF-IDF backend.
+Data (`data/eval_questions.csv`): 15 answerable questions (10 *keyword* questions that share words
+with the documents, 5 *paraphrase* questions that use different words) + 9 out-of-scope questions,
+plus 12 hand-written answers to test the guard. Results below are for the default TF-IDF backend.
 
 | Metric | Result |
 |---|---|
-| Retrieval hit@1 / hit@3 / MRR | 10/10 / 10/10 / 1.00 |
-| Answerable questions wrongly refused | 0/10 |
-| Out-of-scope questions correctly refused | 6/6 |
+| Retrieval hit@1 / hit@3 / MRR | 14/15 / 14/15 / 0.93 |
+| Answerable questions wrongly refused | 4/15 (all four are paraphrases) |
+| Out-of-scope questions correctly refused | 9/9 |
 | Guard: fabricated answers caught | 8/9 |
 | Guard: faithful answers wrongly flagged | 0/3 |
+
+| Question type | Questions | Right document first | Wrongly refused |
+|---|---|---|---|
+| keyword | 10 | 10/10 | 0/10 |
+| paraphrase | 5 | 4/5 | 4/5 |
+
+**Main failure case.** With the default TF-IDF mode, paraphrased questions such as *"What if the
+inverter is running hot?"* are refused, because they share too few words with the document
+(*"temperature exceeds 75C"*). Refusing is the safe behaviour, but it is a real weakness. The
+optional neural mode (`EMBEDDING_BACKEND=hybrid` with `DENSE_ACCEPT`, see below) is built to fix it;
+its logic is tested with a stand-in model, and the real improvement still has to be measured by
+running the evaluation with the model installed.
 
 **Read these numbers with care.** The corpus is 4 documents (6 chunks) and the questions were
 written by the same person who built the system, so scores are optimistic and say little about
@@ -92,10 +113,9 @@ create a ticket..."* reorders the steps using the source's own words.
 
 ## Limitations
 
-- Default TF-IDF matches words, not meaning. Hybrid mode adds meaning, but its similarity scale
-  is uncalibrated here: the eval prints calibration numbers and `DENSE_FLOOR` should be set from
-  them. The keyword-coverage refusal rule is kept, so a paraphrased question with no shared
-  keywords is still refused (safe, but conservative).
+- Default TF-IDF matches words, not meaning, so paraphrased questions are refused (4 of 5 in the
+  evaluation). Hybrid mode adds meaning, but its similarity scale is uncalibrated here: run the
+  evaluation with hybrid enabled and copy the suggested `DENSE_FLOOR` and `DENSE_ACCEPT` values.
 - The guard is rule-based: it checks words, numbers, negations and direction words, not full
   meaning, so reordered steps or subtle rewording can pass (shown above).
 - Tiny corpus; no PDFs, tables or versioning; no authentication; no conversation memory.
@@ -105,7 +125,7 @@ create a ticket..."* reorders the steps using the source's own words.
 
 ## Production-readiness gaps / next steps
 
-1. Calibrate neural similarity on a larger set; relax the keyword rule once calibrated.
+1. Measure the neural mode on a larger set of paraphrased questions and fix the thresholds from data.
 2. Add an entailment (NLI) model or LLM-as-judge to the guard for meaning-level checks.
 3. Larger, independently written evaluation set; track metrics in CI.
 4. Document ingestion for PDF/Word, document versions and effective dates, access control.
@@ -119,6 +139,7 @@ Copy `.env.example`. Never commit real keys; set them as Railway variables.
 |---|---|
 | `EMBEDDING_BACKEND=hybrid` | Adds neural embeddings (needs `requirements-dense.txt`); default `tfidf` |
 | `EMBEDDING_MODEL` | Defaults to `BAAI/bge-small-en-v1.5` |
+| `DENSE_ACCEPT` | Answer a question with few shared keywords when the best passage's neural similarity is at least this value. Unset = off. |
 | `DENSE_WEIGHT` / `DENSE_FLOOR` | Weight of the neural score (0.5) and the cosine below which text counts as unrelated (0.5) |
 | `LLM_PROVIDER=anthropic` | Turns on LLM answers (needs the key below) |
 | `ANTHROPIC_API_KEY` | Secret key, set in Railway -> Variables |

@@ -1,17 +1,25 @@
-question,expected_source,answerable
-What should be checked for inverter derating?,solar_inverter_sop.md,yes
-How should gearbox vibration be investigated?,wind_turbine_maintenance.md,yes
-What temperature should trigger an inverter inspection?,solar_inverter_sop.md,yes
-What should I verify before inspecting a spillway gate?,hydro_safety_brief.md,yes
-Which logs should be reviewed before escalating a generation deviation?,grid_operations_note.md,yes
-When should a priority maintenance ticket be created for an inverter?,solar_inverter_sop.md,yes
-What might high gearbox vibration with rising nacelle temperature indicate?,wind_turbine_maintenance.md,yes
-Do I need to confirm the evacuation route before hydro gate work?,hydro_safety_brief.md,yes
-Should curtailment instructions be reviewed when generation deviates from forecast?,grid_operations_note.md,yes
-What oil checks are recommended for a turbine gearbox?,wind_turbine_maintenance.md,yes
-What is the capital of France?,,no
-How do I bake a chocolate cake?,,no
-What is the safe voltage for transformer maintenance?,,no
-What is the share price of Greenko today?,,no
-How often should solar panels be washed?,,no
-What is the blade replacement procedure for a wind turbine?,,no
+question,expected_source,answerable,type
+What should be checked for inverter derating?,solar_inverter_sop.md,yes,keyword
+How should gearbox vibration be investigated?,wind_turbine_maintenance.md,yes,keyword
+What temperature should trigger an inverter inspection?,solar_inverter_sop.md,yes,keyword
+What should I verify before inspecting a spillway gate?,hydro_safety_brief.md,yes,keyword
+Which logs should be reviewed before escalating a generation deviation?,grid_operations_note.md,yes,keyword
+When should a priority maintenance ticket be created for an inverter?,solar_inverter_sop.md,yes,keyword
+What might high gearbox vibration with rising nacelle temperature indicate?,wind_turbine_maintenance.md,yes,keyword
+Do I need to confirm the evacuation route before hydro gate work?,hydro_safety_brief.md,yes,keyword
+Should curtailment instructions be reviewed when generation deviates from forecast?,grid_operations_note.md,yes,keyword
+What oil checks are recommended for a turbine gearbox?,wind_turbine_maintenance.md,yes,keyword
+What is the capital of France?,,no,out_of_scope
+How do I bake a chocolate cake?,,no,out_of_scope
+What is the safe voltage for transformer maintenance?,,no,out_of_scope
+What is the share price of Greenko today?,,no,out_of_scope
+How often should solar panels be washed?,,no,out_of_scope
+What is the blade replacement procedure for a wind turbine?,,no,out_of_scope
+What if the inverter is running hot?,solar_inverter_sop.md,yes,paraphrase
+"Our turbine gearbox is shaking a lot, what could be wrong?",wind_turbine_maintenance.md,yes,paraphrase
+What safety steps come before opening a spillway?,hydro_safety_brief.md,yes,paraphrase
+Why does power output differ from what was predicted?,grid_operations_note.md,yes,paraphrase
+Who should I contact before checking the water gate?,hydro_safety_brief.md,yes,paraphrase
+How do I install solar panels on my roof?,,no,out_of_scope
+What is the maintenance schedule for a nuclear reactor?,,no,out_of_scope
+What is the best way to store hydrogen?,,no,out_of_scope

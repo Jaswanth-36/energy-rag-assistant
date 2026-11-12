@@ -38,6 +38,8 @@ README -> `data/` -> `backend/chunking.py` -> `backend/retriever.py` -> `backend
 - Next step: calibrate neural embeddings on a larger set + NLI-based check.
 - Credit AI assistance if you used it, and be able to explain every file.
 
+- Honest failure case: with TF-IDF, 4 of 5 paraphrased questions (e.g. "What if the inverter is running hot?") are refused because they share too few words. I chose refusing over guessing; the optional neural mode with a calibrated threshold is the fix, and the eval script prints the calibration numbers.
+
 ## Likely questions
 - *Why not just use an LLM?* It can invent steps; here every sentence is traceable and checked.
 - *What if the key feature (title context) is removed?* Chunks lose their subject and recall drops (inverter derating question is the example).

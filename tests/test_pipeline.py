@@ -56,6 +56,18 @@ def test_hybrid_ranks_by_meaning_when_words_do_not_overlap():
     assert hybrid.score > plain.score
 
 
+def test_paraphrase_is_refused_by_keyword_rule_but_accepted_by_meaning_when_calibrated():
+    from backend.retriever import Retriever
+    q = "What if the inverter is running hot?"
+    r = Retriever(pipe.chunks, dense=FakeDense(pipe.chunks))
+    off = RAGPipeline(retriever=r).ask(q)
+    on = RAGPipeline(retriever=r, dense_accept=0.8).ask(q)
+    assert off["mode"] == "abstained"
+    assert on["mode"] == "extractive" and on["citations"][0]["source"] == "solar_inverter_sop.md"
+    # an unrelated question is still refused even with the neural gate on
+    assert RAGPipeline(retriever=r, dense_accept=0.8).ask("What is the capital of France?")["mode"] == "abstained"
+
+
 def test_missing_neural_package_falls_back_to_tfidf(monkeypatch=None):
     import os
     from backend.retriever import build_retriever
