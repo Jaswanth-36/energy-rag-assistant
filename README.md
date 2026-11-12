@@ -1,9 +1,21 @@
 # Energy Operations Document RAG Assistant
 
+**Live demo:** https://web-production-77fb7066.up.railway.app
+
 A document assistant for renewable-energy operations. An engineer asks a question
 ("What should be checked for inverter derating?") and gets an answer **taken only from the
 SOP documents**, with **citations**, the **retrieved evidence**, and a **hallucination check**
 on every sentence. If the documents don't cover the question, it **refuses** instead of guessing.
+
+## Screenshots
+
+| Cited and verified answer | Out-of-scope refusal |
+|---|---|
+| ![Gearbox answer](screenshots/1_cited_answer_gearbox.png) | ![Refusal](screenshots/2_refusal_out_of_scope.png) |
+
+| Second cited answer | Railway deployment |
+|---|---|
+| ![Inverter answer](screenshots/3_cited_answer_inverter.png) | ![Railway active](screenshots/4_railway_active.png) |
 
 ## Quick start
 
@@ -67,8 +79,10 @@ temperature is **below** 75C"* reuses the source's words but reverses the meanin
 
 - TF-IDF is lexical: "overheating" will not match "temperature exceeds" unless words overlap.
 - The guard checks word support, not meaning, so reworded reversals can pass (shown above).
+- Answer sentences follow retrieval rank, not the document's own order, so a later step can
+  appear before an earlier one (visible in the inverter screenshot).
 - Tiny corpus; no PDFs, tables or versioning; no authentication; no conversation memory.
-- The optional LLM mode was tested only with a stubbed model here (good draft, hallucinated
+- The optional LLM mode was tested only with a stubbed model (good draft, hallucinated
   draft, "insufficient" reply, network error all behave correctly); run it once with a real key
   before relying on it.
 
@@ -76,9 +90,10 @@ temperature is **below** 75C"* reuses the source's words but reverses the meanin
 
 1. Replace TF-IDF with neural embeddings plus a vector store; keep TF-IDF as a hybrid (BM25) signal.
 2. Add an entailment (NLI) model or LLM-as-judge to the guard to catch meaning reversals.
-3. Larger, independently written evaluation set; track metrics in CI.
-4. Document ingestion for PDF/Word, document versions and effective dates, access control.
-5. Logging, rate limiting, and human feedback on answers.
+3. Order answer sentences by their position in the source document.
+4. Larger, independently written evaluation set; track metrics in CI.
+5. Document ingestion for PDF/Word, document versions and effective dates, access control.
+6. Logging, rate limiting, and human feedback on answers.
 
 ## Configuration (all optional)
 
@@ -100,11 +115,13 @@ Copy `.env.example`. Never commit real keys; set them as Railway variables.
 1. Push this folder to a GitHub repository (the `.gitignore` already excludes `.env`).
 2. Sign in at railway.com -> **New Project** -> **Deploy from GitHub repo** -> pick the repo.
 3. Railway detects Python from `requirements.txt` and starts the app with the `Procfile`:
-   `web: uvicorn backend.app:app --host 0.0.0.0 --port $PORT`.
+   `web: uvicorn backend.app:app --host 0.0.0.0 --port $PORT`. A `.python-version` file
+   containing `3.12` pins the Python version; without it Railway chose 3.13 and the first
+   deployment crashed with the pinned package versions.
 4. Open the service -> **Settings -> Networking -> Generate Domain**.
 5. Visit `https://<your-domain>/api/health`. Expect `{"status":"ok","chunks":6,...}`, then open the root URL.
 6. (Optional) **Variables** tab: add `LLM_PROVIDER`, `ANTHROPIC_API_KEY`.
-7. Put the public URL and a screenshot of the working app in your submission as deployment evidence.
+7. Deployed at https://web-production-77fb7066.up.railway.app (see the Railway screenshot above).
 
-If the build fails, check the deploy logs; the usual cause is a Python-version or pinned-package
-mismatch, fixed by editing `requirements.txt`.
+If a build fails, check the deploy logs; the usual causes are a Python-version or pinned-package
+mismatch, fixed by editing `.python-version` or `requirements.txt`.
