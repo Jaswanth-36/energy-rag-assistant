@@ -12,10 +12,17 @@ If the dense model cannot be loaded (package missing, no download, low memory) t
 app falls back to TF-IDF automatically and says so in /api/health and in each answer.
 """
 import os
+import importlib
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
+
+try:
+    TextEmbedding = importlib.import_module("fastembed").TextEmbedding
+except ImportError:  # optional dependency for hybrid dense retrieval
+    TextEmbedding = None  # type: ignore[assignment]
 
 from .chunking import Chunk
 from .text_utils import content_tokens
@@ -41,7 +48,8 @@ class DenseScorer:
     """Neural sentence embeddings through fastembed. Raises if unavailable."""
 
     def __init__(self, texts: list[str], model_name: str = DEFAULT_DENSE_MODEL):
-        from fastembed import TextEmbedding  # optional dependency
+        if TextEmbedding is None:
+            raise ImportError("fastembed is not installed")
 
         self.model_name = model_name
         self._model = TextEmbedding(model_name=model_name)
