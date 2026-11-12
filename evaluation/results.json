@@ -1,9 +1,9 @@
 {
   "n_answerable": 15,
   "n_unanswerable": 9,
-  "retrieval_hit_at_1": 0.9333333333333333,
-  "retrieval_hit_at_3": 0.9333333333333333,
-  "mrr": 0.9333333333333333,
+  "retrieval_hit_at_1": 1.0,
+  "retrieval_hit_at_3": 1.0,
+  "mrr": 1.0,
   "wrongly_abstained": [
     "What if the inverter is running hot?",
     "Our turbine gearbox is shaking a lot, what could be wrong?",
@@ -23,7 +23,7 @@
     },
     "paraphrase": {
       "n": 5,
-      "hit1": 4,
+      "hit1": 5,
       "refused": 4
     }
   },
@@ -222,7 +222,7 @@
       "question": "Why does power output differ from what was predicted?",
       "type": "paraphrase",
       "expected": "grid_operations_note.md",
-      "rank": null,
+      "rank": 1,
       "mode": "abstained",
       "grounded": null
     },

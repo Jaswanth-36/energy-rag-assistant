@@ -40,11 +40,13 @@ python -m evaluation.run_eval                          # retrieval eval + embedd
 python -m evaluation.run_eval --llm                    # evaluates the real LLM answer path
 ```
 
-Then calibrate once: the evaluation prints suggested `DENSE_FLOOR` and `DENSE_ACCEPT` values.
-Set them and rerun; the paraphrase questions should now be answered instead of refused:
+The evaluation ends with a "Neural-embedding calibration" section. If it prints suggested
+`DENSE_FLOOR` and `DENSE_ACCEPT` values, set them and rerun. If it reports that the answerable and
+out-of-scope groups overlap (as it does on the bundled question set, see below), leave
+`DENSE_ACCEPT` unset:
 
 ```bash
-export DENSE_FLOOR=0.xx DENSE_ACCEPT=0.xx              # values printed under "Neural-embedding calibration"
+export DENSE_FLOOR=0.xx DENSE_ACCEPT=0.xx              # only when the calibration section suggests values
 python -m evaluation.run_eval
 ```
 
@@ -78,54 +80,73 @@ because answers are built from retrieved document chunks.
 
 ## Evaluation (`python -m evaluation.run_eval`)
 
-Data (`data/eval_questions.csv`): 15 answerable questions (10 *keyword* questions that share words
+Data (`data/questions.csv`): 15 answerable questions (10 *keyword* questions that share words
 with the documents, 5 *paraphrase* questions that use different words) + 9 out-of-scope questions,
-plus 12 hand-written answers to test the guard. Results below are for the default TF-IDF backend.
+plus 12 hand-written answers to test the guard. Both backends were measured on this same set.
 
-| Metric | Result |
-|---|---|
-| Retrieval hit@1 / hit@3 / MRR | 14/15 / 14/15 / 0.93 |
-| Answerable questions wrongly refused | 4/15 (all four are paraphrases) |
-| Out-of-scope questions correctly refused | 9/9 |
-| Guard: fabricated answers caught | 8/9 |
-| Guard: faithful answers wrongly flagged | 0/3 |
+| Metric | TF-IDF (default) | Hybrid (TF-IDF + bge-small-en-v1.5) |
+|---|---|---|
+| Retrieval hit@1 | 14/15 | 15/15 |
+| Retrieval hit@3 | 14/15 | 15/15 |
+| MRR | 0.93 | 1.00 |
+| Answerable questions wrongly refused | 4/15 (all paraphrases) | 4/15 (all paraphrases) |
+| Out-of-scope questions correctly refused | 9/9 | 9/9 |
+| Guard: fabricated answers caught | 8/9 | 8/9 |
+| Guard: faithful answers wrongly flagged | 0/3 | 0/3 |
 
-| Question type | Questions | Right document first | Wrongly refused |
+| Question type | Questions | Right document first (TF-IDF / hybrid) | Wrongly refused (both) |
 |---|---|---|---|
-| keyword | 10 | 10/10 | 0/10 |
-| paraphrase | 5 | 4/5 | 4/5 |
+| keyword | 10 | 10/10 / 10/10 | 0/10 |
+| paraphrase | 5 | 4/5 / 5/5 | 4/5 |
 
-**Main failure case.** With the default TF-IDF mode, paraphrased questions such as *"What if the
-inverter is running hot?"* are refused, because they share too few words with the document
-(*"temperature exceeds 75C"*). Refusing is the safe behaviour, but it is a real weakness. The
-optional neural mode (`EMBEDDING_BACKEND=hybrid` with `DENSE_ACCEPT`, see below) is built to fix it;
-its logic is tested with a stand-in model, and the real improvement still has to be measured by
-running the evaluation with the model installed.
+### Neural-embedding calibration (measured)
+
+Best raw cosine similarity per question, hybrid backend:
+
+| Group | Min | Max |
+|---|---|---|
+| Answerable questions | 0.63 | 0.91 |
+| Out-of-scope questions | 0.39 | 0.69 |
+
+The two ranges overlap, so no single similarity threshold separates answerable from out-of-scope
+questions on this set. The calibration step therefore suggests no safe `DENSE_ACCEPT`, and it is
+**left unset by default**: the keyword rule stays in charge of the accept/refuse decision.
+
+**Main finding.** Neural embeddings fix *ranking*: the right document is first for all 15
+questions, including every paraphrase (TF-IDF missed one). They do **not** fix the *refusal
+decision*: 4 of 5 paraphrase questions, such as *"What if the inverter is running hot?"* (document
+says *"temperature exceeds 75C"*), are still refused, because the gate relies on keyword overlap.
+This is the safe direction of error (refuse a valid question rather than answer an out-of-scope
+one), and all 9 out-of-scope questions are refused, but it remains a real weakness. Opening the gate
+with a cosine cut-off would need a value that only a larger paraphrase set could justify; a cut-off
+chosen from 24 questions would be overfitted.
 
 **Read these numbers with care.** The corpus is 4 documents (6 chunks) and the questions were
 written by the same person who built the system, so scores are optimistic and say little about
-real-world accuracy. Three settings were changed *after* seeing failures, so they are tuned to
-this small set: keyword-coverage cutoff 0.4 -> 0.5 (a "blade replacement" question matched only
-on the words "wind turbine"), guard support 0.6 -> 0.8 (a half-invented sentence slipped
-through), and a new direction-word rule added after "...temperature is **below** 75C" passed the
-guard. The one remaining guard miss is deliberate and honest: *"Verify SCADA alarms first, then
-create a ticket..."* reorders the steps using the source's own words.
+real-world accuracy. With 24 questions the figures show direction, not statistical precision.
+Three settings were changed *after* seeing failures, so they are tuned to this small set:
+keyword-coverage cutoff 0.4 -> 0.5 (a "blade replacement" question matched only on the words
+"wind turbine"), guard support 0.6 -> 0.8 (a half-invented sentence slipped through), and a new
+direction-word rule added after "...temperature is **below** 75C" passed the guard. The one
+remaining guard miss is deliberate and honest: *"Verify SCADA alarms first, then create a
+ticket..."* reorders the steps using the source's own words.
 
 ## Limitations
 
 - Default TF-IDF matches words, not meaning, so paraphrased questions are refused (4 of 5 in the
-  evaluation). Hybrid mode adds meaning, but its similarity scale is uncalibrated here: run the
-  evaluation with hybrid enabled and copy the suggested `DENSE_FLOOR` and `DENSE_ACCEPT` values.
+  evaluation). Hybrid mode improves ranking (hit@1 15/15) but does not change this: the same 4
+  paraphrases are still refused, because raw neural similarity for answerable questions (0.63-0.91)
+  overlaps with out-of-scope questions (0.39-0.69) and no safe `DENSE_ACCEPT` exists on this set.
 - The guard is rule-based: it checks words, numbers, negations and direction words, not full
   meaning, so reordered steps or subtle rewording can pass (shown above).
 - Tiny corpus; no PDFs, tables or versioning; no authentication; no conversation memory.
-- The neural-embedding and LLM paths were tested with stand-ins for their fusion, fallback and
-  guard logic. Run `python -m evaluation.run_eval` with `EMBEDDING_BACKEND=hybrid`, and
-  `--llm` with a key, to produce real results for your own machine.
+- The LLM path was tested with a stand-in for its fallback and guard logic. Run
+  `python -m evaluation.run_eval --llm` with a key to measure it on your own machine.
 
 ## Production-readiness gaps / next steps
 
-1. Measure the neural mode on a larger set of paraphrased questions and fix the thresholds from data.
+1. Collect many more paraphrased questions (answerable and out-of-scope) so a neural accept
+   threshold, or a trained relevance classifier / cross-encoder reranker, can be fitted from data.
 2. Add an entailment (NLI) model or LLM-as-judge to the guard for meaning-level checks.
 3. Larger, independently written evaluation set; track metrics in CI.
 4. Document ingestion for PDF/Word, document versions and effective dates, access control.
@@ -139,7 +160,7 @@ Copy `.env.example`. Never commit real keys; set them as Railway variables.
 |---|---|
 | `EMBEDDING_BACKEND=hybrid` | Adds neural embeddings (needs `requirements-dense.txt`); default `tfidf` |
 | `EMBEDDING_MODEL` | Defaults to `BAAI/bge-small-en-v1.5` |
-| `DENSE_ACCEPT` | Answer a question with few shared keywords when the best passage's neural similarity is at least this value. Unset = off. |
+| `DENSE_ACCEPT` | Answer a question with few shared keywords when the best passage's neural similarity is at least this value. **Unset (off) by default and recommended to stay off**: on the bundled evaluation set no value separates answerable from out-of-scope questions. |
 | `DENSE_WEIGHT` / `DENSE_FLOOR` | Weight of the neural score (0.5) and the cosine below which text counts as unrelated (0.5) |
 | `LLM_PROVIDER=anthropic` | Turns on LLM answers (needs the key below) |
 | `ANTHROPIC_API_KEY` | Secret key, set in Railway -> Variables |
