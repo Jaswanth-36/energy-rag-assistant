@@ -17,6 +17,24 @@ on every sentence. If the documents don't cover the question, it **refuses** ins
 |---|---|
 | ![Inverter answer](screenshots/3_cited_answer_inverter.png) | ![Railway active](screenshots/4_railway_active.png) |
 
+## Candidate task checklist
+
+The task: *implement chunking, embeddings, retrieval, answer generation, citations and hallucination
+checks, then deploy to Railway.* Where each item lives and how it was verified:
+
+| Requirement | Where | Evidence |
+|---|---|---|
+| Chunking | `backend/chunking.py` | 4 SOP files become 6 sentence-aware chunks (up to 20 words, title kept as context); unit test confirms sentences are never cut |
+| Embeddings | `backend/retriever.py` | TF-IDF by default; optional hybrid mode adds the local neural model bge-small-en-v1.5, with automatic fallback. Both measured: right document first 14/15 (TF-IDF) vs 15/15 (hybrid) |
+| Retrieval | `backend/retriever.py`, `backend/pipeline.py` | Cosine top-k, neighbour-chunk expansion, refusal rules; all 9 out-of-scope questions refused |
+| Answer generation | `backend/generator.py` | Extractive answers by default (cannot invent facts); optional LLM mode whose draft must pass the guard. The LLM mode is implemented but not yet measured with a real key |
+| Citations | `backend/generator.py`, `frontend/index.html` | Every sentence ends with `[n]`; clickable chips and an evidence panel with source, passage and scores |
+| Hallucination checks | `backend/guard.py` | Five per-sentence checks; 8 of 9 fabricated test answers caught, 0 of 3 faithful answers flagged; known blind spot documented below |
+| Railway deployment | `Procfile`, `.python-version` | Live demo link above and the Railway screenshot |
+
+Reproduce the evidence in two commands: `python -m pytest -q` (9 tests) and
+`python -m evaluation.run_eval` (writes `evaluation/results.md`).
+
 ## Quick start
 
 ```bash
@@ -80,7 +98,7 @@ because answers are built from retrieved document chunks.
 
 ## Evaluation (`python -m evaluation.run_eval`)
 
-Data (`data/questions.csv`): 15 answerable questions (10 *keyword* questions that share words
+Data (`data/eval_questions.csv`): 15 answerable questions (10 *keyword* questions that share words
 with the documents, 5 *paraphrase* questions that use different words) + 9 out-of-scope questions,
 plus 12 hand-written answers to test the guard. Both backends were measured on this same set.
 
